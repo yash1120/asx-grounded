@@ -1,0 +1,84 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff check src tests
+          ruff format --check src tests
+
+      - name: Typecheck
+        run: mypy src
+        continue-on-error: true   # tighten once the codebase stabilises
+
+      - name: Unit tests
+        run: pytest -q
+
+  eval-on-pr:
+    # Only runs on PRs with the `run-eval` label to keep API spend bounded.
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-eval')
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      QDRANT_URL: ${{ secrets.QDRANT_URL }}
+      QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -e ".[dev]"
+
+      - name: Run eval harness
+        run: |
+          python -m asx_grounded.eval.run_eval \
+            --testset src/asx_grounded/eval/testset.jsonl \
+            --bm25 data/processed/bm25_corpus.jsonl \
+            --out data/processed/scoreboard.json
+
+      - name: Regression gate (block on >2pp drop)
+        run: |
+          python - <<'PY'
+          import json, sys, pathlib
+          new = json.loads(pathlib.Path("data/processed/scoreboard.json").read_text())
+          base_path = pathlib.Path("data/processed/scoreboard_baseline.json")
+          if not base_path.exists():
+              print("No baseline yet; skipping gate.")
+              sys.exit(0)
+          base = json.loads(base_path.read_text())
+          new_h = new["summary"]["hallucination_rate"]
+          base_h = base["summary"]["hallucination_rate"]
+          if new_h > base_h + 0.02:
+              print(f"Hallucination rate regressed: {base_h:.3f} -> {new_h:.3f}")
+              sys.exit(1)
+          print(f"OK: hallucination_rate {base_h:.3f} -> {new_h:.3f}")
+          PY
+
+      - name: Upload scoreboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoreboard
+          path: data/processed/scoreboard.json
