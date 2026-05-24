@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from asx_grounded.models import RetrievedChunk
 
-
 SYSTEM_PROMPT = """You answer questions about ASX-listed companies using ONLY the provided context excerpts from ASX continuous-disclosure announcements.
 
 Hard rules:
@@ -41,9 +40,7 @@ def render_context(chunks: list[RetrievedChunk]) -> str:
     for c in chunks:
         page = f" page {c.chunk.page_num}" if c.chunk.page_num else ""
         lines.append(
-            f'<chunk id="{c.chunk.chunk_id}" company="{c.chunk.asx_code}"{page}>\n'
-            f"{c.chunk.text.strip()}\n"
-            f"</chunk>"
+            f'<chunk id="{c.chunk.chunk_id}" company="{c.chunk.asx_code}"{page}>\n{c.chunk.text.strip()}\n</chunk>'
         )
     lines.append("</context>")
     return "\n".join(lines)

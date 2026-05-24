@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from asx_grounded.agent.verify_citations import verify_citations
-
 from tests.conftest import make_retrieved
 
 

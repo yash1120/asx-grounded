@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import structlog
 import typer
@@ -77,13 +77,15 @@ def _to_point(chunk: Chunk, vec: list[float], ann: Announcement | None) -> qdran
         "token_count": chunk.token_count,
     }
     if ann is not None:
-        payload.update({
-            "headline": ann.headline,
-            "released_at": ann.released_at.isoformat(),
-            "announcement_type": ann.announcement_type.value,
-            "is_price_sensitive": ann.is_price_sensitive,
-            "asx_page_url": ann.asx_page_url,
-        })
+        payload.update(
+            {
+                "headline": ann.headline,
+                "released_at": ann.released_at.isoformat(),
+                "announcement_type": ann.announcement_type.value,
+                "is_price_sensitive": ann.is_price_sensitive,
+                "asx_page_url": ann.asx_page_url,
+            }
+        )
     return qdrant_models.PointStruct(
         id=abs(hash(chunk.chunk_id)) % (10**18),
         vector=vec,
@@ -200,8 +202,8 @@ def write_bm25_corpus(data_dir: Path, out_path: Path) -> int:
 
 @app.command()
 def cli(
-    data_dir: Path = typer.Option(Path("data/raw"), "--data-dir"),
-    bm25_out: Path = typer.Option(Path("data/processed/bm25_corpus.jsonl"), "--bm25-out"),
+    data_dir: Annotated[Path, typer.Option("--data-dir")] = Path("data/raw"),
+    bm25_out: Annotated[Path, typer.Option("--bm25-out")] = Path("data/processed/bm25_corpus.jsonl"),
 ) -> None:
     """Parse all PDFs in ``--data-dir``, embed, upsert to Qdrant, and snapshot BM25 corpus."""
     embedded = embed_all(data_dir)

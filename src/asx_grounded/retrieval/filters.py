@@ -14,10 +14,11 @@ The LLM call is bypassed entirely when the regex layer already returns enough.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import anthropic
 import structlog
@@ -33,9 +34,37 @@ _ISO_DATE_RE = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
 
 # Known false positives — uppercase 3-letter words that are not ASX codes.
 _CODE_STOPWORDS = {
-    "ASX", "AUD", "USD", "CEO", "CFO", "COO", "AGM", "EGM", "AGM", "FY", "EPS",
-    "PDF", "USA", "ANZ", "ABN", "ACN", "GST", "RBA", "API", "QLD", "NSW", "VIC",
-    "WA", "SA", "TAS", "NT", "ACT", "AND", "FOR", "THE", "ALL", "NEW",
+    "ASX",
+    "AUD",
+    "USD",
+    "CEO",
+    "CFO",
+    "COO",
+    "AGM",
+    "EGM",
+    "FY",
+    "EPS",
+    "PDF",
+    "USA",
+    "ANZ",
+    "ABN",
+    "ACN",
+    "GST",
+    "RBA",
+    "API",
+    "QLD",
+    "NSW",
+    "VIC",
+    "WA",
+    "SA",
+    "TAS",
+    "NT",
+    "ACT",
+    "AND",
+    "FOR",
+    "THE",
+    "ALL",
+    "NEW",
 }
 
 
@@ -71,10 +100,10 @@ def _regex_filter(query: str) -> MetadataFilter:
             f.asx_codes.add(m)
     iso_dates = _ISO_DATE_RE.findall(query)
     if len(iso_dates) == 1:
-        f.released_after = datetime.fromisoformat(iso_dates[0]).replace(tzinfo=timezone.utc)
+        f.released_after = datetime.fromisoformat(iso_dates[0]).replace(tzinfo=UTC)
     elif len(iso_dates) >= 2:
-        f.released_after = datetime.fromisoformat(iso_dates[0]).replace(tzinfo=timezone.utc)
-        f.released_before = datetime.fromisoformat(iso_dates[1]).replace(tzinfo=timezone.utc)
+        f.released_after = datetime.fromisoformat(iso_dates[0]).replace(tzinfo=UTC)
+        f.released_before = datetime.fromisoformat(iso_dates[1]).replace(tzinfo=UTC)
     return f
 
 
@@ -92,9 +121,7 @@ _DATE_HINT_RE = re.compile(
 def _needs_llm(query: str, regex_filter: MetadataFilter) -> bool:
     if not regex_filter.empty:
         return False
-    if _NAME_HINT_RE.search(query) or _DATE_HINT_RE.search(query):
-        return True
-    return False
+    return bool(_NAME_HINT_RE.search(query) or _DATE_HINT_RE.search(query))
 
 
 _LLM_SYSTEM = """You extract metadata filters from a user's question about ASX announcements.
@@ -133,10 +160,8 @@ def _llm_filter(query: str) -> MetadataFilter:
     for key in ("released_after", "released_before"):
         val = data.get(key)
         if isinstance(val, str):
-            try:
-                setattr(f, key, datetime.fromisoformat(val).replace(tzinfo=timezone.utc))
-            except ValueError:
-                pass
+            with contextlib.suppress(ValueError):
+                setattr(f, key, datetime.fromisoformat(val).replace(tzinfo=UTC))
     return f
 
 

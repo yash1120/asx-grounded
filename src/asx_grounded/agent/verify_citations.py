@@ -32,7 +32,7 @@ _CITE_RE = re.compile(r"\[([^\[\]]+?)\]")
 
 @dataclass(slots=True)
 class VerifiedAnswer:
-    answer_text: str           # rewritten text with invalid citations stripped
+    answer_text: str  # rewritten text with invalid citations stripped
     citations: list[Citation]
     fabricated_ids: list[str] = field(default_factory=list)
     unsupported_claims: list[str] = field(default_factory=list)
@@ -119,9 +119,7 @@ def _llm_check_support(
         if not ids_in_sent:
             continue
         sources = "\n\n".join(
-            f"[{cid}] {retrieved_ids[cid].chunk.text.strip()}"
-            for cid in ids_in_sent
-            if cid in retrieved_ids
+            f"[{cid}] {retrieved_ids[cid].chunk.text.strip()}" for cid in ids_in_sent if cid in retrieved_ids
         )
         if not sources:
             continue

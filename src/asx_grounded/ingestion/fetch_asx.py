@@ -14,9 +14,9 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 import structlog
@@ -162,7 +162,7 @@ async def fetch_for_code(
 
 async def fetch_all(codes: list[str], days: int, out_dir: Path) -> list[Announcement]:
     settings = get_settings()
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
     client = AsxClient(settings.asx_user_agent, settings.asx_rate_limit_per_sec)
     try:
         results: list[Announcement] = []
@@ -184,9 +184,9 @@ def _write_manifest(announcements: list[Announcement], out_dir: Path) -> Path:
 
 @app.command()
 def cli(
-    codes: str = typer.Option(..., "--codes", help="Comma-separated ASX codes, e.g. CBA,BHP,WBC"),
-    days: int = typer.Option(30, "--days", help="Lookback window in days"),
-    out: Path = typer.Option(Path("data/raw"), "--out", help="Output directory"),
+    codes: Annotated[str, typer.Option("--codes", help="Comma-separated ASX codes, e.g. CBA,BHP,WBC")],
+    days: Annotated[int, typer.Option("--days", help="Lookback window in days")] = 30,
+    out: Annotated[Path, typer.Option("--out", help="Output directory")] = Path("data/raw"),
 ) -> None:
     """Fetch announcements + PDFs for the given codes into ``--out``."""
     code_list = [c.strip().upper() for c in codes.split(",") if c.strip()]

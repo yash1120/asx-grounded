@@ -15,6 +15,7 @@ import json
 import time
 from pathlib import Path
 from statistics import mean, quantiles
+from typing import Annotated
 
 import structlog
 import typer
@@ -164,24 +165,26 @@ def run_eval(
             + 2000 / 1_000_000 * _OPUS_INPUT_USD_PER_MTOK
             + 200 / 1_000_000 * _OPUS_OUTPUT_USD_PER_MTOK
         )
-        verdicts.append({
-            "qid": q.qid,
-            "category": q.category,
-            "question": q.question,
-            "expected_refusal": q.expected_refusal,
-            "answer": resp.answer,
-            "refused": resp.refused,
-            "citations": [c.model_dump() for c in resp.citations],
-            "factually_correct": verdict.factually_correct,
-            "citation_accuracy": verdict.citation_accuracy,
-            "citation_recall": verdict.citation_recall,
-            "refusal_correct": verdict.refusal_correct,
-            "format_compliant": verdict.format_compliant,
-            "hallucination": verdict.hallucination,
-            "reasoning": verdict.reasoning,
-            "latency_ms": resp.latency_ms,
-            "cost_usd": round(cost, 4),
-        })
+        verdicts.append(
+            {
+                "qid": q.qid,
+                "category": q.category,
+                "question": q.question,
+                "expected_refusal": q.expected_refusal,
+                "answer": resp.answer,
+                "refused": resp.refused,
+                "citations": [c.model_dump() for c in resp.citations],
+                "factually_correct": verdict.factually_correct,
+                "citation_accuracy": verdict.citation_accuracy,
+                "citation_recall": verdict.citation_recall,
+                "refusal_correct": verdict.refusal_correct,
+                "format_compliant": verdict.format_compliant,
+                "hallucination": verdict.hallucination,
+                "reasoning": verdict.reasoning,
+                "latency_ms": resp.latency_ms,
+                "cost_usd": round(cost, 4),
+            }
+        )
         latencies.append(resp.latency_ms)
         costs.append(cost)
         log.info("eval.judged", qid=q.qid, hallucination=verdict.hallucination)
@@ -201,9 +204,9 @@ def run_eval(
 
 @app.command()
 def cli(
-    testset: Path = typer.Option(Path("src/asx_grounded/eval/testset.jsonl"), "--testset"),
-    bm25: Path = typer.Option(Path("data/processed/bm25_corpus.jsonl"), "--bm25"),
-    out: Path = typer.Option(Path("data/processed/scoreboard.json"), "--out"),
+    testset: Annotated[Path, typer.Option("--testset")] = Path("src/asx_grounded/eval/testset.jsonl"),
+    bm25: Annotated[Path, typer.Option("--bm25")] = Path("data/processed/bm25_corpus.jsonl"),
+    out: Annotated[Path, typer.Option("--out")] = Path("data/processed/scoreboard.json"),
 ) -> None:
     scoreboard = run_eval(testset, bm25, out)
     summary = scoreboard.get("summary", {})

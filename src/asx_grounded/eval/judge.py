@@ -52,10 +52,7 @@ No extra prose, no markdown fences."""
 def _sources_block(sources: list[RetrievedChunk]) -> str:
     if not sources:
         return "(none)"
-    return "\n\n".join(
-        f"[{s.chunk.chunk_id}] ({s.chunk.asx_code}) {s.chunk.text.strip()}"
-        for s in sources
-    )
+    return "\n\n".join(f"[{s.chunk.chunk_id}] ({s.chunk.asx_code}) {s.chunk.text.strip()}" for s in sources)
 
 
 def _strip_fences(text: str) -> str:
@@ -72,9 +69,7 @@ def judge(
         raise RuntimeError("ANTHROPIC_API_KEY not configured")
 
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    citations_block = (
-        "\n".join(f"- {c.chunk_id}" for c in response.citations) if response.citations else "(none)"
-    )
+    citations_block = "\n".join(f"- {c.chunk_id}" for c in response.citations) if response.citations else "(none)"
     user_msg = (
         f"QUESTION: {question.question}\n"
         f"CATEGORY: {question.category}\n"

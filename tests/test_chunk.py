@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from asx_grounded.ingestion.chunk import chunk_pdf
-
 from tests.conftest import make_parsed_pdf
 
 

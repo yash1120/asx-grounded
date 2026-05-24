@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class AnnouncementType(str, Enum):
+class AnnouncementType(StrEnum):
     PRICE_SENSITIVE = "price_sensitive"
     PERIODIC_REPORT = "periodic_report"
     DIVIDEND = "dividend"
@@ -82,7 +82,7 @@ class JudgeVerdict(BaseModel):
     qid: str
     factually_correct: bool
     citation_accuracy: float  # 0..1 — of cited chunks, % that support the claim
-    citation_recall: float    # 0..1 — of expected citations, % present
+    citation_recall: float  # 0..1 — of expected citations, % present
     refusal_correct: bool
     format_compliant: bool
     hallucination: bool
