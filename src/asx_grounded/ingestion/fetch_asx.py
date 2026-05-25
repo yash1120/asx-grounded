@@ -30,7 +30,12 @@ log = structlog.get_logger()
 app = typer.Typer(help="Fetch ASX announcements + PDFs.")
 
 
-ASX_LISTING_URL = "https://www.asx.com.au/asx/1/company/{code}/announcements"
+# As of 2026, ASX's old www.asx.com.au/asx/1/company/{code}/announcements endpoint returns 404.
+# Live data is served by the Markit Digital backend. Citations link to the human-readable ASX
+# viewer page (displayAnnouncement.do) so deep-links work for end users.
+ASX_LISTING_URL = "https://asx.api.markitdigital.com/asx-research/1.0/companies/{code}/announcements"
+ASX_PDF_URL_TEMPLATE = "https://asx.api.markitdigital.com/asx-research/1.0/file/{key}"
+ASX_PAGE_URL_TEMPLATE = "https://www.asx.com.au/asx/statistics/displayAnnouncement.do?display=pdf&idsId={key}"
 
 
 class RateLimiter:
@@ -74,15 +79,30 @@ class AsxClient:
         resp.raise_for_status()
         return resp
 
-    async def list_announcements(self, code: str, count: int = 50) -> list[dict[str, Any]]:
+    async def list_announcements(self, code: str, count: int = 50) -> dict[str, Any]:
+        """Fetch the Markit Digital announcement envelope for ``code``.
+
+        Returns a dict with ``company_name`` and ``items`` (always present, possibly empty).
+        The envelope shape on success is ``{"data": {"displayName": ..., "items": [...]}}``.
+        """
         url = ASX_LISTING_URL.format(code=code.upper())
+        empty: dict[str, Any] = {"company_name": code.upper(), "items": []}
         try:
-            resp = await self._get(url, count=count, pageNum=0)
-            data = resp.json()
+            resp = await self._get(url, count=count)
+            body = resp.json()
         except (httpx.HTTPError, json.JSONDecodeError) as exc:
             log.warning("asx.listing.failed", code=code, error=str(exc))
-            return []
-        return data.get("data", []) if isinstance(data, dict) else []
+            return empty
+        if not isinstance(body, dict):
+            return empty
+        data = body.get("data") or {}
+        if not isinstance(data, dict):
+            return empty
+        items = data.get("items") or []
+        return {
+            "company_name": data.get("displayName") or code.upper(),
+            "items": items if isinstance(items, list) else [],
+        }
 
     async def download_pdf(self, url: str, dest: Path) -> bool:
         try:
@@ -109,29 +129,34 @@ def _classify(headline: str, is_price_sensitive: bool) -> AnnouncementType:
     return AnnouncementType.GENERAL
 
 
-def _parse_item(item: dict[str, Any], code: str) -> Announcement | None:
+def _parse_item(item: dict[str, Any], code: str, company_name: str) -> Announcement | None:
+    """Map one Markit Digital announcement item to our :class:`Announcement` model.
+
+    The Markit response uses camelCase keys (``documentKey``, ``isPriceSensitive``,
+    ``announcementType``). PDF and human-readable page URLs are constructed from the
+    ``documentKey`` since the listing's ``url`` field is empty.
+    """
     try:
-        ann_id = str(item.get("id") or item["document_release_date"] + "_" + code)
-        headline = item.get("header", "").strip() or "Untitled"
-        released = item.get("document_release_date") or item.get("release_date")
+        document_key = (item.get("documentKey") or "").strip()
+        if not document_key:
+            return None
+        headline = (item.get("headline") or "").strip() or "Untitled"
+        released = item.get("date")
         if not released:
             return None
         released_at = datetime.fromisoformat(released.replace("Z", "+00:00"))
-        pdf_url = item.get("url") or item.get("pdf_url") or ""
-        if not pdf_url:
-            return None
-        is_ps = bool(item.get("price_sensitive", False))
+        is_ps = bool(item.get("isPriceSensitive", False))
         return Announcement(
-            ann_id=ann_id,
+            ann_id=document_key,
             asx_code=code.upper(),
-            company_name=item.get("issuer_full_name") or item.get("company") or code,
+            company_name=company_name or code.upper(),
             headline=headline,
             released_at=released_at,
             announcement_type=_classify(headline, is_ps),
             is_price_sensitive=is_ps,
-            pdf_url=pdf_url,
-            asx_page_url=item.get("page_url") or pdf_url,
-            pages=int(item.get("number_of_pages", 0) or 0),
+            pdf_url=ASX_PDF_URL_TEMPLATE.format(key=document_key),
+            asx_page_url=ASX_PAGE_URL_TEMPLATE.format(key=document_key),
+            pages=0,  # not exposed by the listing; could be backfilled at parse time
         )
     except (KeyError, ValueError, TypeError) as exc:
         log.warning("asx.parse.failed", code=code, error=str(exc))
@@ -144,10 +169,11 @@ async def fetch_for_code(
     out_dir: Path,
     since: datetime,
 ) -> list[Announcement]:
-    raw = await client.list_announcements(code)
+    payload = await client.list_announcements(code)
+    company_name = payload["company_name"]
     out: list[Announcement] = []
-    for item in raw:
-        ann = _parse_item(item, code)
+    for item in payload["items"]:
+        ann = _parse_item(item, code, company_name)
         if ann is None or ann.released_at < since:
             continue
         pdf_dest = out_dir / "pdfs" / code.upper() / f"{ann.ann_id}.pdf"

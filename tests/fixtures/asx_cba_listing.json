@@ -1,0 +1,55 @@
+{
+  "data": {
+    "displayName": "COMMONWEALTH BANK OF AUSTRALIA.",
+    "issueType": "CS",
+    "items": [
+      {
+        "announcementType": "SECURITY HOLDER DETAILS",
+        "date": "2026-05-25T01:54:20.000Z",
+        "documentKey": "2924-03093339-3A693936",
+        "fileSize": "380KB",
+        "headline": "Change in substantial holding from CBA",
+        "isPriceSensitive": false,
+        "url": ""
+      },
+      {
+        "announcementType": "ISSUED CAPITAL",
+        "date": "2026-05-21T00:52:56.000Z",
+        "documentKey": "2924-03092428-2A1673169",
+        "fileSize": "413KB",
+        "headline": "Pricing Supplement - EMTN Programme",
+        "isPriceSensitive": false,
+        "url": ""
+      },
+      {
+        "announcementType": "ISSUED CAPITAL",
+        "date": "2026-05-21T00:49:21.000Z",
+        "documentKey": "2924-03092426-2A1673166",
+        "fileSize": "23KB",
+        "headline": "Application for quotation of securities - CBA",
+        "isPriceSensitive": false,
+        "url": ""
+      },
+      {
+        "announcementType": "ISSUED CAPITAL",
+        "date": "2026-05-21T00:33:06.000Z",
+        "documentKey": "2924-03092419-2A1673160",
+        "fileSize": "6149KB",
+        "headline": "Issue of EUR 1,250,000,000 worth of Subordinated Notes",
+        "isPriceSensitive": false,
+        "url": ""
+      },
+      {
+        "announcementType": "SECURITY HOLDER DETAILS",
+        "date": "2026-05-20T23:04:35.000Z",
+        "documentKey": "2924-03092321-2A1673114",
+        "fileSize": "203KB",
+        "headline": "Appendix 3Y - Paul O'Malley",
+        "isPriceSensitive": false,
+        "url": ""
+      }
+    ],
+    "symbol": "CBA",
+    "xid": "70547"
+  }
+}
